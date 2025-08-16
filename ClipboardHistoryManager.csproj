@@ -6,6 +6,11 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyTitle>ClipboardHistoryManager</AssemblyTitle>
+    <Description>Search and retrieve anything from your clipboard history.</Description>
+    <Company>NuggetzNL</Company>
+    <Copyright>© 2025 NuggetzNL</Copyright>
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

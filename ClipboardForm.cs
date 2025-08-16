@@ -47,7 +47,16 @@ namespace ClipboardHistoryManager
             var getContentItem = new ToolStripMenuItem("Copy Content");
             getContentItem.Click += GetContentSelectedItem;
             contextMenu.Items.Add(getContentItem);
+
+            // Double-click to copy content
+            listView.DoubleClick += GetContentSelectedItem;
             #endregion Copy item content
+
+            #region Tagging items
+            var tagItem = new ToolStripMenuItem("Tag Item");
+            tagItem.Click += TagSelectedItem;
+            contextMenu.Items.Add(tagItem);
+            #endregion Tagging items
 
             listView.ContextMenuStrip = contextMenu;
             panel.Controls.Add(listView);
@@ -67,7 +76,7 @@ namespace ClipboardHistoryManager
             monitor.OnClipboardText += SaveText;
             monitor.OnClipboardImage += SaveImage;
         }
-
+        
         private void SaveText(string type, string text)
         {
             if (suppressClipboardEvent) return;
@@ -137,11 +146,20 @@ namespace ClipboardHistoryManager
                 }
             }
         }
-
         private void GetContentSelectedItem(object sender, EventArgs e)
         {
             if (listView.SelectedItems.Count != 0)
             {
+                if (listView.SelectedItems.Count > 1)
+                {
+                    MessageBox.Show(
+                        $"Please select only one item to copy.",
+                        "Warning",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
                 var item = listView.SelectedItems[0];
                 int id = (int)item.Tag; // Retrieve ID from ListView item
                 string content = Database.GetContent(id);
@@ -185,6 +203,63 @@ namespace ClipboardHistoryManager
             }
         }
 
+        private void TagSelectedItem(object sender, EventArgs e)
+        {
+            if (listView.SelectedItems.Count == 0) return;
+
+            // Get available tags from the database
+            var tags = Database.GetAllAvailableTags();
+
+            // Create combobox
+            var comboBox = new ComboBox
+            {
+                //DataSource = tags,
+                DropDownStyle = ComboBoxStyle.DropDown,
+                Width = 200
+            };
+
+            comboBox.Items.AddRange(tags.ToArray());
+            comboBox.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            comboBox.AutoCompleteSource = AutoCompleteSource.ListItems;
+
+            var prompt = new Form
+            {
+                Width = 250,
+                Height = 150,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                Text = "Select or create tag",
+                StartPosition = FormStartPosition.CenterParent
+            };
+
+            var confirmation = new Button()
+                { Text = "OK", Left = 150, Width = 60, Top = 40, DialogResult = DialogResult.OK };
+            comboBox.Left = 20;
+            comboBox.Top = 20;
+
+            prompt.Controls.Add(comboBox);
+            prompt.Controls.Add(confirmation);
+            prompt.AcceptButton = confirmation;
+
+            // Show the prompt dialog
+            if (prompt.ShowDialog() == DialogResult.OK)
+            {
+                // Get selected tag or create new one
+                string tag = comboBox.Text.Trim();
+                if (string.IsNullOrEmpty(tag))
+                {
+                    MessageBox.Show("Tag cannot be empty.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                // Update the selected items with the new tag
+                foreach (ListViewItem item in listView.SelectedItems)
+                {
+                    int id = (int)item.Tag; // Retrieve ID from ListView item
+                    Database.UpdateTag(id, tag);
+                }
+                LoadHistory();
+            }
+        }
+
         private void LoadHistory(string filter = "")
         {
             listView.Items.Clear();
@@ -194,7 +269,8 @@ namespace ClipboardHistoryManager
                 if (!string.IsNullOrWhiteSpace(filter))
                 {
                     if (!(entry.Content?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                          entry.Type?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0))
+                          entry.Type?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                          entry.Tag?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0))
                     {
                         continue;
                     }

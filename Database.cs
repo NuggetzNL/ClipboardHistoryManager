@@ -76,6 +76,39 @@ namespace ClipboardHistoryManager
             cmd.ExecuteNonQuery();
         }
 
+        public static void UpdateTag(int id, string tag)
+        {
+            using var conn = new SQLiteConnection(_connStr);
+            conn.Open();
+            string sql = "UPDATE ClipboardHistory SET Tag = @Tag WHERE Id = @Id";
+            using var cmd = new SQLiteCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@Tag", tag);
+            cmd.Parameters.AddWithValue("@Id", id);
+            cmd.ExecuteNonQuery();
+        }
+
+        public static List<string> GetAllAvailableTags()
+        {
+            var list = new List<string>();
+            using var conn = new SQLiteConnection(_connStr);
+            conn.Open();
+            string sql = "SELECT DISTINCT Tag FROM ClipboardHistory WHERE Tag IS NOT NULL AND Tag <> ''";
+            using var cmd = new SQLiteCommand(sql, conn);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                list.Add(reader["Tag"].ToString());
+            }
+
+            // Add a default "Favorite" tag if not already present
+            if (!list.Contains("Favorite"))
+            {
+                list.Add("Favorite");
+            }
+            
+            return list;
+        }
+
         public static List<ClipboardItem> GetAll()
         {
             var list = new List<ClipboardItem>();
