@@ -23,7 +23,8 @@ namespace ClipboardHistoryManager
                             Id INTEGER PRIMARY KEY AUTOINCREMENT,
                             Timestamp TEXT,
                             Type TEXT,
-                            Content TEXT
+                            Content TEXT,
+                            Tag TEXT
                           )";
             using var cmd = new SQLiteCommand(sql, conn);
             cmd.ExecuteNonQuery();
@@ -33,11 +34,12 @@ namespace ClipboardHistoryManager
         {
             using var conn = new SQLiteConnection(_connStr);
             conn.Open();
-            string sql = "INSERT INTO ClipboardHistory (Timestamp, Type, Content) VALUES (@Timestamp, @Type, @Content)";
+            string sql = "INSERT INTO ClipboardHistory (Timestamp, Type, Content, Tag) VALUES (@Timestamp, @Type, @Content, @Tag)";
             using var cmd = new SQLiteCommand(sql, conn);
             cmd.Parameters.AddWithValue("@Timestamp", item.Timestamp.ToString("o"));
             cmd.Parameters.AddWithValue("@Type", item.Type);
             cmd.Parameters.AddWithValue("@Content", item.Content);
+            cmd.Parameters.AddWithValue("@Tag", item.Tag);
             cmd.ExecuteNonQuery();
         }
 
@@ -89,7 +91,8 @@ namespace ClipboardHistoryManager
                     Id = Convert.ToInt32(reader["Id"]),
                     Timestamp = DateTime.Parse(reader["Timestamp"].ToString()),
                     Type = reader["Type"].ToString(),
-                    Content = reader["Content"].ToString()
+                    Content = reader["Content"].ToString(),
+                    Tag = reader["Tag"].ToString()
                 });
             }
             return list;

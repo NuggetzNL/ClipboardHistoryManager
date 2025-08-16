@@ -12,5 +12,6 @@ namespace ClipboardHistoryManager
         public DateTime Timestamp { get; set; }
         public string Type { get; set; } // text, image, file, etc.
         public string Content { get; set; } // plain text of base64 encoded image or file path
+        public string Tag { get; set; }
     }
 }

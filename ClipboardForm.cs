@@ -18,7 +18,7 @@ namespace ClipboardHistoryManager
         public ClipboardForm()
         {
             Text = "Clipboard History Manager";
-            Width = 600;
+            Width = 700;
             Height = 400;
 
             var panel = new Panel { Dock = DockStyle.Fill };
@@ -34,6 +34,7 @@ namespace ClipboardHistoryManager
             };
             listView.Columns.Add("Type", 100);
             listView.Columns.Add("Content", 450);
+            listView.Columns.Add("Tag", 150);
 
             var contextMenu = new ContextMenuStrip();
             #region Deleting items
@@ -82,7 +83,8 @@ namespace ClipboardHistoryManager
             {
                 Timestamp = DateTime.Now,
                 Type = type,
-                Content = text
+                Content = text,
+                Tag = ""
             };
             Database.Insert(item);
             LoadHistory();
@@ -107,7 +109,8 @@ namespace ClipboardHistoryManager
             {
                 Timestamp = DateTime.Now,
                 Type = type,
-                Content = base64
+                Content = base64,
+                Tag = ""
             };
             Database.Insert(item);
             LoadHistory();
@@ -198,7 +201,7 @@ namespace ClipboardHistoryManager
                 }
 
                 string display = entry.Type == "text" ? entry.Content : "[Image]";
-                var lvi = new ListViewItem(new[] { entry.Type, display });
+                var lvi = new ListViewItem(new[] { entry.Type, display, entry.Tag });
                 lvi.Tag = entry.Id; // Store ID for deletion
                 listView.Items.Add(lvi);
             }
