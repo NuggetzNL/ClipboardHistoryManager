@@ -9,8 +9,10 @@ namespace ClipboardHistoryManager
 {
     public partial class ClipboardForm : Form
     {
-        private ListView listView;
+        private DataGridView grid;
+        private TextBox searchBox;
         private ClipboardMonitor monitor;
+
         private bool suppressClipboardEvent = false;
         private string lastImageHash = null;
         private string lastTextContent = null;
@@ -24,46 +26,97 @@ namespace ClipboardHistoryManager
             var panel = new Panel { Dock = DockStyle.Fill };
             Controls.Add(panel);
 
-            #region ListView
-            listView = new ListView
+            #region DataGridView
+            grid = new DataGridView
             {
                 Dock = DockStyle.Fill,
-                View = View.Details,
-                FullRowSelect = true,
-                MultiSelect = true
+                AllowUserToAddRows = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = true,
+                AutoGenerateColumns = false
             };
-            listView.Columns.Add("Type", 100);
-            listView.Columns.Add("Content", 450);
-            listView.Columns.Add("Tag", 150);
 
+            #region Columns
+            #region Type column
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Type",
+                Width = 100,
+                Name = "TypeColumn",
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+            });
+            #endregion Type column
+
+            #region Content column
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Content",
+                Width = 450,
+                Name = "ContentColumn",
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                FillWeight = 70
+            });
+            #endregion Content column
+
+            #region Tag column (dropdown)
+            var tagColumn = new DataGridViewComboBoxColumn
+            {
+                HeaderText = "Tag",
+                Width = 150,
+                Name = "TagColumn",
+                DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+            };
+
+            // Add always an empty option "no tag"
+            tagColumn.Items.Add("");
+
+            // Get all existing tags from DB
+            foreach (var tag in Database.GetAllAvailableTags())
+            {
+                if (!string.IsNullOrWhiteSpace(tag) && !tagColumn.Items.Contains(tag))
+                {
+                    tagColumn.Items.Add(tag);
+                }
+            }
+
+            grid.Columns.Add(tagColumn);
+            #endregion Tag column (dropdown)
+            #endregion Columns
+
+            // Events for custom input
+            grid.EditingControlShowing += Grid_EditingControlShowing;
+            grid.CellValidating += Grid_CellValidating;
+
+            #region Contextmenu
             var contextMenu = new ContextMenuStrip();
-            #region Deleting items
+
             var deleteItem = new ToolStripMenuItem("Delete");
             deleteItem.Click += DeleteSelectedItem;
             contextMenu.Items.Add(deleteItem);
-            #endregion Deleting items
 
-            #region Copy item content
             var getContentItem = new ToolStripMenuItem("Copy Content");
             getContentItem.Click += GetContentSelectedItem;
             contextMenu.Items.Add(getContentItem);
 
-            // Double-click to copy content
-            listView.DoubleClick += GetContentSelectedItem;
-            #endregion Copy item content
-
-            #region Tagging items
             var tagItem = new ToolStripMenuItem("Tag Item");
             tagItem.Click += TagSelectedItem;
             contextMenu.Items.Add(tagItem);
-            #endregion Tagging items
 
-            listView.ContextMenuStrip = contextMenu;
-            panel.Controls.Add(listView);
-            #endregion ListView
+            grid.ContextMenuStrip = contextMenu;
+            #endregion Contextmenu
+
+            // Double-click to copy content
+            grid.CellDoubleClick += GetContentSelectedItem;
+
+            // Tag changed, save
+            grid.CellValueChanged += Grid_CellValueChanged;
+
+            panel.Controls.Add(grid);
+            #endregion DataGridView
 
             #region SearchBox
-            var searchBox = new TextBox()
+            searchBox = new TextBox()
             {
                 Dock = DockStyle.Top,
                 PlaceholderText = "Search...",
@@ -76,14 +129,77 @@ namespace ClipboardHistoryManager
             monitor.OnClipboardText += SaveText;
             monitor.OnClipboardImage += SaveImage;
         }
-        
+
+        #region Tag methods
+        private void Grid_EditingControlShowing(object sender, DataGridViewEditingControlShowingEventArgs e)
+        {
+            if (grid.CurrentCell.ColumnIndex == grid.Columns["TagColumn"].Index &&
+                e.Control is ComboBox combo)
+            {
+                // Dropdown always open on edit (custom input)
+                combo.DropDownStyle = ComboBoxStyle.DropDown;
+            }
+        }
+
+        private void Grid_CellValidating(object sender, DataGridViewCellValidatingEventArgs e)
+        {
+            if (e.ColumnIndex == grid.Columns["TagColumn"].Index)
+            {
+                string newTag = e.FormattedValue?.ToString().Trim() ?? "";
+
+                var tagColumn = (DataGridViewComboBoxColumn)grid.Columns["TagColumn"];
+
+                if (!tagColumn.Items.Contains(newTag))
+                {
+                    // Add new Tag to Dropdown if it doesn't exist
+                    tagColumn.Items.Add(newTag);
+                }
+
+                // Add tag to item and save in database
+                var row = grid.Rows[e.RowIndex];
+                if (row.Tag is int id)
+                {
+                    Database.UpdateTag(id, newTag);
+                }
+            }
+        }
+
+        private void Grid_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0) return;
+            if (e.ColumnIndex == grid.Columns["TagColumn"].Index)
+            {
+                var row = grid.Rows[e.RowIndex];
+                if (row.Tag is int id)
+                {
+                    string newTag = row.Cells["TagColumn"].Value?.ToString().Trim() ?? string.Empty;
+                    Database.UpdateTag(id, newTag);
+                }
+            }
+        }
+
+        private void TagSelectedItem(object sender, EventArgs e)
+        {
+            if (grid.SelectedRows.Count == 0) return;
+
+            var row = grid.SelectedRows[0];
+            var cell = row.Cells["TagColumn"];
+
+            grid.CurrentCell = cell;
+            grid.BeginEdit(true);
+
+            if (grid.EditingControl is ComboBox cb)
+            {
+                cb.DroppedDown = true; // Open dropdown meteen
+            }
+        }
+        #endregion Tag methods
+
+        #region Save methods
         private void SaveText(string type, string text)
         {
             if (suppressClipboardEvent) return;
-
             if (string.IsNullOrWhiteSpace(text)) return;
-
-            // Check for duplicate text
             if (text == lastTextContent) return;
 
             lastTextContent = text;
@@ -105,13 +221,13 @@ namespace ClipboardHistoryManager
 
             using var ms = new MemoryStream();
             img.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-            string base64 = Convert.ToBase64String(ms.ToArray());
+            byte[] bytes = ms.ToArray();
+            string base64 = Convert.ToBase64String(bytes);
 
-            // Make hash to check for duplicates
-            string hash =
-                Convert.ToBase64String(System.Security.Cryptography.SHA256.Create().ComputeHash(ms.ToArray()));
+            string hash = Convert.ToBase64String(
+                System.Security.Cryptography.SHA256.Create().ComputeHash(bytes));
+
             if (hash == lastImageHash) return;
-
             lastImageHash = hash;
 
             var item = new ClipboardItem
@@ -124,148 +240,88 @@ namespace ClipboardHistoryManager
             Database.Insert(item);
             LoadHistory();
         }
+        #endregion Save methods
 
         private void DeleteSelectedItem(object sender, EventArgs e)
         {
-            if (listView.SelectedItems.Count > 0)
+            if (grid.SelectedRows.Count > 0)
             {
                 var confirm = MessageBox.Show(
-                    $"Are you sure to delete the selected {listView.SelectedItems.Count} item(s)?",
+                    $"Are you sure to delete the selected {grid.SelectedRows.Count} item(s)?",
                     "Confirm",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning);
 
                 if (confirm == DialogResult.Yes)
                 {
-                    foreach (ListViewItem item in listView.SelectedItems)
+                    foreach (DataGridViewRow row in grid.SelectedRows)
                     {
-                        int id = (int)item.Tag; // Retrieve ID from ListView item
-                        Database.Delete(id);
+                        if (row.Tag is int id)
+                        {
+                            Database.Delete(id);
+                        }
                     }
                     LoadHistory();
                 }
             }
         }
+
         private void GetContentSelectedItem(object sender, EventArgs e)
         {
-            if (listView.SelectedItems.Count != 0)
+            if (grid.SelectedRows.Count != 1)
             {
-                if (listView.SelectedItems.Count > 1)
+                if (grid.SelectedRows.Count > 1)
                 {
-                    MessageBox.Show(
-                        $"Please select only one item to copy.",
-                        "Warning",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                    return;
+                    MessageBox.Show("Please select only one item to copy.",
+                        "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
-
-                var item = listView.SelectedItems[0];
-                int id = (int)item.Tag; // Retrieve ID from ListView item
-                string content = Database.GetContent(id);
-
-                if (!string.IsNullOrEmpty(content))
-                {
-                    suppressClipboardEvent = true;
-
-                    if (item.SubItems[0].Text == "image")
-                    {
-                        // Decode base64 image and copy to clipboard
-                        byte[] imageBytes = Convert.FromBase64String(content);
-                        using var ms = new MemoryStream(imageBytes);
-                        Clipboard.SetImage(Image.FromStream(ms));
-
-                        // Update lastImageHash to prevent duplicate image saves
-                        lastImageHash = Convert.ToBase64String(System.Security.Cryptography.SHA256.Create().ComputeHash(imageBytes));
-                    }
-                    else
-                    {
-                        // Copy text to clipboard
-                        Clipboard.SetText(content);
-                        lastTextContent = content; // Update last text content
-                    }
-
-                    // Update Timestamp
-                    Database.UpdateTimestamp(id);
-                    LoadHistory();
-
-                    // Add delay for windows event
-                    WinFormsTimer t = new WinFormsTimer();
-                    t.Interval = 100; // 0,1 sec
-                    t.Tick += (sender, e) =>
-                    {
-                        suppressClipboardEvent = false;
-                        t.Stop();
-                        t.Dispose();
-                    };
-                    t.Start();
-                }
+                return;
             }
-        }
 
-        private void TagSelectedItem(object sender, EventArgs e)
-        {
-            if (listView.SelectedItems.Count == 0) return;
+            var row = grid.SelectedRows[0];
+            if (row.Tag is not int id) return;
 
-            // Get available tags from the database
-            var tags = Database.GetAllAvailableTags();
+            string content = Database.GetContent(id);
+            if (string.IsNullOrEmpty(content)) return;
 
-            // Create combobox
-            var comboBox = new ComboBox
+            suppressClipboardEvent = true;
+
+            if (string.Equals(row.Cells["TypeColumn"].Value?.ToString(), "image", StringComparison.OrdinalIgnoreCase))
             {
-                //DataSource = tags,
-                DropDownStyle = ComboBoxStyle.DropDown,
-                Width = 200
-            };
+                byte[] imageBytes = Convert.FromBase64String(content);
+                using var ms = new MemoryStream(imageBytes);
+                Clipboard.SetImage(Image.FromStream(ms));
 
-            comboBox.Items.AddRange(tags.ToArray());
-            comboBox.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-            comboBox.AutoCompleteSource = AutoCompleteSource.ListItems;
-
-            var prompt = new Form
-            {
-                Width = 250,
-                Height = 150,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                Text = "Select or create tag",
-                StartPosition = FormStartPosition.CenterParent
-            };
-
-            var confirmation = new Button()
-                { Text = "OK", Left = 150, Width = 60, Top = 40, DialogResult = DialogResult.OK };
-            comboBox.Left = 20;
-            comboBox.Top = 20;
-
-            prompt.Controls.Add(comboBox);
-            prompt.Controls.Add(confirmation);
-            prompt.AcceptButton = confirmation;
-
-            // Show the prompt dialog
-            if (prompt.ShowDialog() == DialogResult.OK)
-            {
-                // Get selected tag or create new one
-                string tag = comboBox.Text.Trim();
-                if (string.IsNullOrEmpty(tag))
-                {
-                    MessageBox.Show("Tag cannot be empty.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-                // Update the selected items with the new tag
-                foreach (ListViewItem item in listView.SelectedItems)
-                {
-                    int id = (int)item.Tag; // Retrieve ID from ListView item
-                    Database.UpdateTag(id, tag);
-                }
-                LoadHistory();
+                lastImageHash = Convert.ToBase64String(
+                    System.Security.Cryptography.SHA256.Create().ComputeHash(imageBytes));
             }
+            else
+            {
+                Clipboard.SetText(content);
+                lastTextContent = content;
+            }
+
+            Database.UpdateTimestamp(id);
+            LoadHistory();
+
+            var t = new WinFormsTimer { Interval = 100 };
+            t.Tick += (s, ev) =>
+            {
+                suppressClipboardEvent = false;
+                t.Stop();
+                t.Dispose();
+            };
+            t.Start();
         }
 
         private void LoadHistory(string filter = "")
         {
-            listView.Items.Clear();
+            grid.Rows.Clear();
+
+            var tagColumn = grid.Columns["TagColumn"] as DataGridViewComboBoxColumn;
+
             foreach (var entry in Database.GetAll())
             {
-                // Filter on content of type
                 if (!string.IsNullOrWhiteSpace(filter))
                 {
                     if (!(entry.Content?.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -277,9 +333,14 @@ namespace ClipboardHistoryManager
                 }
 
                 string display = entry.Type == "text" ? entry.Content : "[Image]";
-                var lvi = new ListViewItem(new[] { entry.Type, display, entry.Tag });
-                lvi.Tag = entry.Id; // Store ID for deletion
-                listView.Items.Add(lvi);
+                int rowIndex = grid.Rows.Add(entry.Type, display, string.IsNullOrEmpty(entry.Tag) ? "" : entry.Tag);
+                grid.Rows[rowIndex].Tag = entry.Id;
+
+                // tag dynamisch aanvullen (maar skip leeg)
+                if (!string.IsNullOrEmpty(entry.Tag) && !tagColumn.Items.Contains(entry.Tag))
+                {
+                    tagColumn.Items.Add(entry.Tag);
+                }
             }
         }
 
