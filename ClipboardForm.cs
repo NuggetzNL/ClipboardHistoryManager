@@ -26,10 +26,7 @@ namespace ClipboardHistoryManager
 
             var panel = new Panel { Dock = DockStyle.Fill };
             Controls.Add(panel);
-
-            // Add tag filter
-            InitTagFilter(panel);
-
+            
             #region DataGridView
             grid = new DataGridView
             {
@@ -119,15 +116,8 @@ namespace ClipboardHistoryManager
             panel.Controls.Add(grid);
             #endregion DataGridView
 
-            #region SearchBox
-            searchBox = new TextBox()
-            {
-                Dock = DockStyle.Top,
-                PlaceholderText = "Search...",
-            };
-            searchBox.TextChanged += (s, e) => LoadHistory(searchBox.Text);
-            panel.Controls.Add(searchBox);
-            #endregion SearchBox
+            // Add tag and search
+            InitFilterAndSearch(panel);
 
             monitor = new ClipboardMonitor();
             monitor.OnClipboardText += SaveText;
@@ -135,12 +125,36 @@ namespace ClipboardHistoryManager
         }
 
         #region Tag methods
-
-        private void InitTagFilter(Panel panel)
+        private void InitFilterAndSearch(Panel panel)
         {
-            tagFilterBox = new ComboBox
+            var table = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
+                ColumnCount = 2,
+                RowCount = 2,
+                AutoSize = true,
+                Padding = new Padding(5)
+            };
+
+            // Columns
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+
+            // Rows
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            var tagFilterLabel = new Label
+            {
+                Text = "Filter:",
+                Anchor = AnchorStyles.Left,
+                AutoSize = true,
+                Margin = new Padding(0, 5, 5, 5)
+            };
+
+            tagFilterBox = new ComboBox
+            {
+                Dock = DockStyle.Fill,
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
 
@@ -153,8 +167,32 @@ namespace ClipboardHistoryManager
             {
                 LoadHistory(searchBox.Text);
             };
+            
+            panel.Controls.Add(table);
 
-            panel.Controls.Add(tagFilterBox);
+            // Search label
+            var searchLabel = new Label
+            {
+                Text = "Search: ",
+                Anchor = AnchorStyles.Left,
+                AutoSize = true,
+                Margin = new Padding(0, 5, 5, 5)
+            };
+
+            searchBox = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                PlaceholderText = "Search..."
+            };
+
+            searchBox.TextChanged += (s, e) => LoadHistory(searchBox.Text);
+
+            table.Controls.Add(searchLabel, 0, 0);
+            table.Controls.Add(searchBox, 1, 0);
+            table.Controls.Add(tagFilterLabel, 0, 1);
+            table.Controls.Add(tagFilterBox, 1, 1);
+
+            panel.Controls.Add(table);
         }
         private void Grid_EditingControlShowing(object sender, DataGridViewEditingControlShowingEventArgs e)
         {
@@ -219,7 +257,7 @@ namespace ClipboardHistoryManager
             }
         }
         #endregion Tag methods
-
+        
         #region Save methods
         private void SaveText(string type, string text)
         {
