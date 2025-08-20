@@ -109,6 +109,29 @@ namespace ClipboardHistoryManager
             return list;
         }
 
+        public static List<ClipboardItem> GetByTag(string tag)
+        {
+            var list = new List<ClipboardItem>();
+            using var conn = new SQLiteConnection(_connStr);
+            conn.Open();
+            string sql = "SELECT * FROM ClipboardHistory WHERE Tag = @Tag ORDER BY Timestamp DESC";
+            using var cmd = new SQLiteCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@Tag", tag);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                list.Add(new ClipboardItem
+                {
+                    Id = Convert.ToInt32(reader["Id"]),
+                    Timestamp = DateTime.Parse(reader["Timestamp"].ToString()),
+                    Type = reader["Type"].ToString(),
+                    Content = reader["Content"].ToString(),
+                    Tag = reader["Tag"].ToString()
+                });
+            }
+            return list;
+        }
+
         public static List<ClipboardItem> GetAll()
         {
             var list = new List<ClipboardItem>();

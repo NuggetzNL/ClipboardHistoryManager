@@ -12,6 +12,7 @@ namespace ClipboardHistoryManager
         private DataGridView grid;
         private TextBox searchBox;
         private ClipboardMonitor monitor;
+        private ComboBox tagFilterBox;
 
         private bool suppressClipboardEvent = false;
         private string lastImageHash = null;
@@ -25,6 +26,9 @@ namespace ClipboardHistoryManager
 
             var panel = new Panel { Dock = DockStyle.Fill };
             Controls.Add(panel);
+
+            // Add tag filter
+            InitTagFilter(panel);
 
             #region DataGridView
             grid = new DataGridView
@@ -131,6 +135,27 @@ namespace ClipboardHistoryManager
         }
 
         #region Tag methods
+
+        private void InitTagFilter(Panel panel)
+        {
+            tagFilterBox = new ComboBox
+            {
+                Dock = DockStyle.Top,
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+
+            // Load tags + "All" option
+            var tags = Database.GetAllAvailableTags();
+            tags.Insert(0, "All");
+            tagFilterBox.DataSource = tags;
+
+            tagFilterBox.SelectedIndexChanged += (s, e) =>
+            {
+                LoadHistory(searchBox.Text);
+            };
+
+            panel.Controls.Add(tagFilterBox);
+        }
         private void Grid_EditingControlShowing(object sender, DataGridViewEditingControlShowingEventArgs e)
         {
             if (grid.CurrentCell.ColumnIndex == grid.Columns["TagColumn"].Index &&
@@ -319,8 +344,18 @@ namespace ClipboardHistoryManager
             grid.Rows.Clear();
 
             var tagColumn = grid.Columns["TagColumn"] as DataGridViewComboBoxColumn;
+            List<ClipboardItem> items;
 
-            foreach (var entry in Database.GetAll())
+            if (tagFilterBox != null && tagFilterBox.SelectedItem is string selectedTag && selectedTag != "All")
+            {
+                items = Database.GetByTag(selectedTag);
+            }
+            else
+            {
+                items = Database.GetAll();
+            }
+
+            foreach (var entry in items)
             {
                 if (!string.IsNullOrWhiteSpace(filter))
                 {
