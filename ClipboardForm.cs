@@ -167,8 +167,6 @@ namespace ClipboardHistoryManager
             {
                 LoadHistory(searchBox.Text);
             };
-            
-            panel.Controls.Add(table);
 
             // Search label
             var searchLabel = new Label
@@ -222,6 +220,7 @@ namespace ClipboardHistoryManager
                 var row = grid.Rows[e.RowIndex];
                 if (row.Tag is int id)
                 {
+                    row.Cells["TagColumn"].Value = newTag;
                     Database.UpdateTag(id, newTag);
                 }
             }
@@ -253,7 +252,7 @@ namespace ClipboardHistoryManager
 
             if (grid.EditingControl is ComboBox cb)
             {
-                cb.DroppedDown = true; // Open dropdown meteen
+                cb.DroppedDown = true;
             }
         }
         #endregion Tag methods
