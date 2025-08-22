@@ -13,6 +13,7 @@ namespace ClipboardHistoryManager
         private TextBox searchBox;
         private ClipboardMonitor monitor;
         private ComboBox tagFilterBox;
+        private Button muteButton;
 
         private bool suppressClipboardEvent = false;
         private string lastImageHash = null;
@@ -130,7 +131,7 @@ namespace ClipboardHistoryManager
             var table = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
-                ColumnCount = 2,
+                ColumnCount = 3,
                 RowCount = 2,
                 AutoSize = true,
                 Padding = new Padding(5)
@@ -139,6 +140,7 @@ namespace ClipboardHistoryManager
             // Columns
             table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
             // Rows
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -146,7 +148,7 @@ namespace ClipboardHistoryManager
 
             var tagFilterLabel = new Label
             {
-                Text = "Filter:",
+                Text = "Tag Filter:",
                 Anchor = AnchorStyles.Left,
                 AutoSize = true,
                 Margin = new Padding(0, 5, 5, 5)
@@ -183,15 +185,28 @@ namespace ClipboardHistoryManager
                 PlaceholderText = "Search..."
             };
 
+            // Button mute clipboard events
+            muteButton = new Button
+            {
+                Text = "Mute Clipboard",
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                Margin = new Padding(5)
+            };
+
+            muteButton.Click += (s, e) => MuteClipboard(s, e);
+
             searchBox.TextChanged += (s, e) => LoadHistory(searchBox.Text);
 
             table.Controls.Add(searchLabel, 0, 0);
             table.Controls.Add(searchBox, 1, 0);
             table.Controls.Add(tagFilterLabel, 0, 1);
             table.Controls.Add(tagFilterBox, 1, 1);
+            table.Controls.Add(muteButton, 2, 0);
 
             panel.Controls.Add(table);
         }
+
         private void Grid_EditingControlShowing(object sender, DataGridViewEditingControlShowingEventArgs e)
         {
             if (grid.CurrentCell.ColumnIndex == grid.Columns["TagColumn"].Index &&
@@ -413,6 +428,20 @@ namespace ClipboardHistoryManager
                 {
                     tagColumn.Items.Add(entry.Tag);
                 }
+            }
+        }
+
+        private void MuteClipboard(object sender, EventArgs e)
+        {
+            if (muteButton.Text == "Mute Clipboard")
+            {
+                muteButton.Text = "Unmute Clipboard";
+                suppressClipboardEvent = true;
+            }
+            else
+            {
+                muteButton.Text = "Mute Clipboard";
+                suppressClipboardEvent = false;
             }
         }
 
