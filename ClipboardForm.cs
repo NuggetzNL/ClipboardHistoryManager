@@ -2,7 +2,7 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-using ClipboardHistoryManager;
+using ClipboardHistoryManager.Data;
 using WinFormsTimer = System.Windows.Forms.Timer;
 
 namespace ClipboardHistoryManager

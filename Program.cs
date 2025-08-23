@@ -1,3 +1,4 @@
+using ClipboardHistoryManager.Data;
 using System;
 using System.Data.Entity;
 using System.Windows.Forms;
@@ -14,7 +15,7 @@ namespace ClipboardHistoryManager
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Database.Init();
+            Data.Database.Init();
             Application.Run(new ClipboardForm());
         }
     }

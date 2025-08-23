@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ClipboardHistoryManager
+namespace ClipboardHistoryManager.Data
 {
     public static class Database
     {
